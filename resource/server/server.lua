@@ -6,7 +6,7 @@ end
 
 server = {
 	core = (hasResource('es_extended') and 'esx') or (hasResource('qb-core') and 'qb') or (hasResource('ox_core') and 'ox') or '',
-	voice = exports['pma-voice'],
+	voice = exports['saltychat'],
 	players = {}
 }
 
@@ -25,7 +25,7 @@ if server.core == 'esx' then
 			AddEventHandler('esx:onRemoveInventoryItem', function(source, name, count)
 				if name == 'radio' and count < 1 then
 					TriggerClientEvent('ac_radio:disableRadio', source)
-					server.voice:setPlayerRadio(source, 0)
+					server.voice:SetPlayerRadioChannel(source, '', true)
 				end
 			end)
 		end
@@ -41,36 +41,3 @@ elseif server.core == 'qb' then
 		end)
 	end
 end
-
-
-
--- Group check yoinked from https://github.com/overextended/ox_inventory/blob/3112665275a10815a610a5cbd382518e7efe55e8/modules/bridge/server.lua#L1
-for frequency, allowed in pairs(ac.restrictedChannels) do
-	server.voice:addChannelCheck(tonumber(frequency), function(source)
-		local groups = server.players[source]
-		if not groups then return false end
-
-		if type(allowed) == 'table' then
-			for name, rank in pairs(allowed) do
-				local groupRank = groups[name]
-				if groupRank and groupRank >= (rank or 0) then
-					return true
-				end
-			end
-		else
-			if groups[allowed] then
-				return true
-			end
-		end
-
-		return false
-	end)
-end
-
-
-
-SetConvarReplicated('radio_noRadioDisconnect', tostring(ac.noRadioDisconnect))
-SetConvarReplicated('voice_useNativeAudio', tostring(ac.radioEffect))
-SetConvarReplicated('voice_enableSubmix', ac.radioEffect and '1' or '0')
-SetConvarReplicated('voice_enableRadioAnim', ac.radioAnimation and '1' or '0')
-SetConvarReplicated('voice_defaultRadio', ac.radioKey)

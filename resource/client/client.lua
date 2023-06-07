@@ -2,9 +2,10 @@ local presetFreq = nil ---@type number | nil
 local radioProp = nil ---@type number | nil
 local volumeState = nil ---@type number | nil
 local uiOpened = false
-local voice = exports['pma-voice']
+local voice = exports['saltychat']
+local ESX = exports['es_extended']:getSharedObject()
 
-
+voice:SetMicClick(true)
 
 local function openRadio()
 	if uiOpened then return end
@@ -41,19 +42,21 @@ end
 local function joinRadio(channel)
 	if not channel then return end
 	channel = round(channel, ac.decimalStep)
-
-	if channel <= ac.maximumFrequencies and channel > 0 then
-		voice:setVoiceProperty('radioEnabled', true)
-		voice:setRadioChannel(channel)
-		notify('success', locale('channel_join', channel))
+	
+	if filterRestricted(channel) then
+		if channel <= ac.maximumFrequencies and channel > 0 then
+			voice:SetRadioChannel(channel, true)
+			notify('success', locale('channel_join', channel))
+		else
+			notify('error', locale('channel_unavailable'))
+		end
 	else
 		notify('error', locale('channel_unavailable'))
 	end
 end
 
 local function leaveRadio()
-	voice:removePlayerFromRadio()
-	voice:setVoiceProperty('radioEnabled', false)
+	voice:SetRadioChannel('', true)
 end
 
 
@@ -96,7 +99,7 @@ RegisterNUICallback('leave', function()
 end)
 
 RegisterNUICallback('volume_up', function()
-	local volume = volumeState and volumeState * 0.01 or voice:getRadioVolume()
+	local volume = volumeState and volumeState * 0.01 or voice:GetRadioVolume()
 
 	if volumeState then
 		volumeState = nil
@@ -105,7 +108,7 @@ RegisterNUICallback('volume_up', function()
 
 	if volume <= 0.9 then
 		local newVolume = math.floor((volume + 0.1) * 100)
-		voice:setRadioVolume(newVolume)
+		voice:SetRadioVolume(newVolume)
 		notify('inform', locale('volume_up', newVolume), 1500, 'volume-high')
 	else
 		notify('error', locale('volume_max'), 2500)
@@ -113,7 +116,7 @@ RegisterNUICallback('volume_up', function()
 end)
 
 RegisterNUICallback('volume_down', function()
-	local volume = volumeState and volumeState * 0.01 or voice:getRadioVolume()
+	local volume = volumeState and volumeState * 0.01 or voice:GetRadioVolume()
 
 	if volumeState then
 		volumeState = nil
@@ -122,7 +125,7 @@ RegisterNUICallback('volume_down', function()
 
 	if volume >= 0.2 then
 		local newVolume = math.floor((volume - 0.1) * 100)
-		voice:setRadioVolume(newVolume)
+		voice:SetRadioVolume(newVolume)
 		notify('inform', locale('volume_down', newVolume), 1500, 'volume-low')
 	else
 		notify('error', locale('volume_min'), 2500)
@@ -131,12 +134,12 @@ end)
 
 RegisterNUICallback('volume_mute', function()
 	if volumeState then
-		voice:setRadioVolume(volumeState)
+		voice:SetRadioVolume(volumeState)
 		volumeState = nil
 		notify('success', locale('volume_unmute'), 5000, 'volume-high')
 	else
-		volumeState = math.floor(voice:getRadioVolume() * 100)
-		voice:setRadioVolume(0)
+		volumeState = math.floor(voice:GetRadioVolume() * 100)
+		voice:SetRadioVolume(0)
 		notify('error', locale('volume_mute'), 5000, 'volume-xmark')
 	end
 end)
@@ -195,7 +198,7 @@ RegisterCommand('radio:clear', function()
 end, false)
 
 RegisterNetEvent('ac_radio:disableRadio', function()
-	voice:setVoiceProperty('radioEnabled', false)
+	voice:SetRadioChannel('', true)
 end)
 
 RegisterNetEvent('ac_radio:openRadio', openRadio)
@@ -212,3 +215,28 @@ AddEventHandler('onResourceStop', function(resource)
 		end
 	end
 end)
+
+function filterRestricted(channel)
+	for frequency, allowed in pairs(ac.restrictedChannels) do
+		if tonumber(channel) == tonumber(frequency) then
+			local groups = { [ESX.GetPlayerData().job.name] = ESX.GetPlayerData().job.grade }
+			if not groups then return false end
+
+			if type(allowed) == 'table' then
+				for name, rank in pairs(allowed) do
+					local groupRank = groups[name]
+					if groupRank and groupRank >= (rank or 0) then
+						return true
+					end
+				end
+			else
+				if groups[allowed] then
+					return true
+				end
+			end
+
+			return false
+		end
+	end
+	return true
+end

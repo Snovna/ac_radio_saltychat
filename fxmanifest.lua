@@ -37,4 +37,4 @@ files {
 }
 
 
-dependency 'pma-voice'
+dependency 'saltychat'

@@ -14,7 +14,8 @@ local function customNotify(type, text, duration, icon)
 		type = type,
 		description = text,
 		duration = duration,
-		icon = icon
+		icon = icon,
+		position = 'center-left'
 	})
 
 end
